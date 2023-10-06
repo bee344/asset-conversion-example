@@ -174,7 +174,7 @@ checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 
 [[package]]
 name = "asset-conversion-example"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
