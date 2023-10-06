@@ -1,0 +1,8 @@
+subxt/target
+zombienet/polkadot
+zombienet/polkadot-execute-worker
+zombienet/polkadot-prepare-worker
+zombienet/polkadot-parachain
+zombienet/zombienet-linux-x64
+.vscode
+subxt/src/main.rs
