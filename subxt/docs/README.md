@@ -126,44 +126,73 @@ After that, we proceed to create a batch of transactions in which we crate the a
 
 ```
 async fn prepare_setup(api: OnlineClient<CustomConfig>) {
+
     let alice: MultiAddress<AccountId32, ()> = dev::alice().public_key().into();
-    let address: AccountId32 = dev::alice().public_key().into();
+    
+	let address: AccountId32 = dev::alice().public_key().into();
 	
-    let mut call_buffer: Vec<Call> = Vec::<Call>::new();
-    call_buffer.push(create_asset_call(alice.clone(), 1).unwrap());
+    
+	let mut call_buffer: Vec<Call> = Vec::<Call>::new();
+    
+	call_buffer.push(create_asset_call(alice.clone(), 1).unwrap());
 	
-    call_buffer.push(
-        set_asset_metadata_call(
-            ASSET_ID,
-            NAME.as_bytes().to_vec(),
-            SYMBOL.as_bytes().to_vec(),
-            0,
-        )
-        .unwrap(),
-    );
+    
+	call_buffer.push(
+    
+	    set_asset_metadata_call(
+    
+	        ASSET_ID,
+    
+	        NAME.as_bytes().to_vec(),
+    
+	        SYMBOL.as_bytes().to_vec(),
+    
+	        0,
+    
+	    )
+    
+	    .unwrap(),
+    
+	);
 	
-    const AMOUNT_TO_MINT: u128 = 100000000000000;
+
+    
+	const AMOUNT_TO_MINT: u128 = 100000000000000;
 	
-    call_buffer.push(mint_token_call( alice.clone(), AMOUNT_TO_MINT).unwrap());
+	call_buffer.push(mint_token_call( alice.clone(), AMOUNT_TO_MINT).unwrap());
 	 
     call_buffer.push(create_pool_with_native_call().unwrap());
 	
     call_buffer.push(
-        provide_liquidity_to_token_native_pool_call(
-            10000000000,
-            10000000,
-            0,
-            0,
-            address,
-        )
-        .unwrap(),
-    );
+    
+	    provide_liquidity_to_token_native_pool_call(
+    
+	        10000000000,
+    
+	        10000000,
+    
+	        0,
+    
+	        0,
+    
+	        address,
+    
+	    )
+    
+	    .unwrap(),
+    
+	);
 
     if let Err(subxt::Error::Runtime(dispatch_err)) =
-        sign_and_send_batch_calls(api, call_buffer).await
-    {
-        eprintln!("Could not dispatch the call: {}", dispatch_err);
-    }
+    
+	    sign_and_send_batch_calls(api, call_buffer).await
+    
+	{
+    
+	    eprintln!("Could not dispatch the call: {}", dispatch_err);
+    
+	}
+
 }
 ```
 
@@ -282,19 +311,19 @@ async fn sign_and_send_transfer(
 				
 		let tx_params = WestmintExtrinsicParamsBuilder::new().tip(AssetTip::new(0).of_asset(multi));
 		
-		let _hash = api
+		api
 		
-			.tx()
-			
-			.sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_params)
-			
-			.await?
-			
-			.wait_for_finalized_success()
-			
-			.await?
-			
-			.has::<local::asset_conversion_tx_payment::events::AssetTxFeePaid>()?;
+		.tx()
+		
+		.sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_params)
+		
+		.await?
+		
+		.wait_for_finalized_success()
+		
+		.await?
+		
+		.has::<local::asset_conversion_tx_payment::events::AssetTxFeePaid>()?;
 		
 		println!("Balance transfer submitted and fee paid succesfully");
 		
