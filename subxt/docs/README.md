@@ -322,4 +322,4 @@ With this, we have succesfully gone through the whole process of creating and mi
 
 Thank you for your attention and we hope this example was useful.
 
-*NOTE: Some pieces of code have been omitted to keep this example at a reasonable length, but the full code can be seen in this [repo](https://github.com/bee344/subxt/tree/anp-asset-conversion).*
+*NOTE: Some pieces of code have been omitted to keep this example at a reasonable length, but the full code can be seen in this [repo](https://github.com/bee344/asset-conversion-example/tree/main/subxt).*
