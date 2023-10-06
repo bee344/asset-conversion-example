@@ -12,6 +12,22 @@ For this example we will use [subxt](https://github.com/paritytech/subxt) as a w
 
 We will also use [zombienet](https://github.com/paritytech/zombienet) to spawn the Westend Relay Chain and Westend Asset Hub nodes. For this we use the binaries built from the [polkadot-sdk repo](https://github.com/paritytech/polkadot-sdk), with the consideration of building the polkadot binary with the flag `--features=fast-runtime`, in order to decrease the epoch time. We also need to build the [three binaries](https://github.com/paritytech/polkadot/pull/7337) for running the nodes as local.
 
+## Usage
+
+To run this example first you need to have a zombienet running. For this, from the root directory run:
+
+```
+ ~ ./zombienet/<zombienet-binary-for-your-OS> -p native spawn ./zombienet/westend_network.toml 
+```
+
+Then, cd into the subxt directory and run:
+
+```
+~ cargo run asset-conversion-example
+```
+
+And there you go, you can check the outputs for the different stages of the example.
+ 
 ## Description
 
 ### Setup
