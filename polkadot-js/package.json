@@ -4,7 +4,7 @@
   "description": "Example on how to use AssetConversionTxPayment with Polkadot-JS",
   "packageManager": "yarn@3.6.1",
   "scripts": {
-    "example": "ts-node index.js"
+    "example": "node index.js"
   },
   "dependencies": {
     "@polkadot/api": "^10.10.1",
