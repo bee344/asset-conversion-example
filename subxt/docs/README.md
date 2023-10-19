@@ -40,17 +40,11 @@ pub enum CustomConfig {}
 impl Config for CustomConfig {
 
     type Hash = <SubstrateConfig as Config>::Hash;
-    
 	type AccountId = <SubstrateConfig as Config>::AccountId;
-    
 	type Address = <PolkadotConfig as Config>::Address;
-    
 	type Signature = <SubstrateConfig as Config>::Signature;
-    
 	type Hasher = <SubstrateConfig as Config>::Hasher;
-    
 	type Header = <SubstrateConfig as Config>::Header;
-    
 	type ExtrinsicParams = WestmintExtrinsicParams<Self>;
 
 }
@@ -63,7 +57,6 @@ Setup the `ExtrinsicParams` as `WestmintExtrinsicParams<T>` and its builder as
 
 ```rust
 pub type WestmintExtrinsicParams<T> = BaseExtrinsicParams<T, AssetTip>;
-
 pub type WestmintExtrinsicParamsBuilder<T> = BaseExtrinsicParamsBuilder<T, AssetTip>;
 ```
 And also create the `AssetTip` we want to add to the config:
@@ -132,7 +125,6 @@ async fn prepare_setup(api: OnlineClient<CustomConfig>) {
 	let mut call_buffer: Vec<Call> = Vec::<Call>::new();
     
 	call_buffer.push(create_asset_call(alice.clone(), 1).unwrap());
-	
 	call_buffer.push(
 	    set_asset_metadata_call(
 	        ASSET_ID,
@@ -146,9 +138,7 @@ async fn prepare_setup(api: OnlineClient<CustomConfig>) {
 	const AMOUNT_TO_MINT: u128 = 100000000000000;
 	
 	call_buffer.push(mint_token_call( alice.clone(), AMOUNT_TO_MINT).unwrap());
-	 
     call_buffer.push(create_pool_with_native_call().unwrap());
-	
     call_buffer.push(
 	    provide_liquidity_to_token_native_pool_call(
 	        10000000000,
