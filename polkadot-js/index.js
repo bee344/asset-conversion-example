@@ -6,7 +6,6 @@ async function main() {
 
     const apiConfigRuntime = {
         spec: {
-            // put here westmint instead of node
             westmint: {
                 runtime: {
                     AssetConversionApi: [

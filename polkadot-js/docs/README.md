@@ -58,7 +58,6 @@ With the modified version of `assetConversionApi.quotePriceExactTokensForTokens`
 ```js
 const apiConfigRuntime = {
 	spec: {
-		// put here westmint instead of node
 		westmint: {
 			runtime: {
 				AssetConversionApi: [

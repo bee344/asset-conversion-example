@@ -1,3 +1,3 @@
-# asset-conversion-example
+# Pallet Asset Conversion examples
 
-#TODO
+Examples on how to pay fees with custom assets using the Asset Conversion Pallet and the Asset Conversion Tx Payment Pallet.
