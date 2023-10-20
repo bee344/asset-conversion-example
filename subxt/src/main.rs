@@ -1,15 +1,21 @@
-use codec::Encode;
+use codec::{Encode, Compact};
 use subxt::{
-    OnlineClient, 
+    OnlineClient,
+    client::OfflineClientT, 
     config::{
-        Config, PolkadotConfig, SubstrateConfig,
+        ExtrinsicParams,
+        ExtrinsicParamsEncoder,
+        DefaultExtrinsicParamsBuilder,
+        Config,
+        PolkadotConfig, 
+        SubstrateConfig, 
+        signed_extensions,
         }, 
         utils::{
             AccountId32, MultiAddress
         }
     };
 use subxt_signer::sr25519::dev::{self};
-use subxt::config::extrinsic_params::{BaseExtrinsicParamsBuilder, BaseExtrinsicParams};
 
 // Metadata that we'll use for our example
 #[subxt::subxt(runtime_metadata_path = "./metadata/asset_hub_metadata.scale")]
@@ -17,8 +23,10 @@ pub mod local {}
 
 // Types that we retrieve from the Metadata for our example
 type MultiLocation = local::runtime_types::staging_xcm::v3::multilocation::MultiLocation;
+
 use local::runtime_types::staging_xcm::v3::junction::Junction::{GeneralIndex, PalletInstance};
 use local::runtime_types::staging_xcm::v3::junctions::Junctions::{Here, X2};
+
 type Call = local::runtime_types::asset_hub_westend_runtime::RuntimeCall;
 type AssetConversionCall = local::runtime_types::pallet_asset_conversion::pallet::Call;
 type AssetsCall = local::runtime_types::pallet_assets::pallet::Call;
@@ -41,46 +49,95 @@ impl Config for CustomConfig {
     type Signature = <SubstrateConfig as Config>::Signature;
     type Hasher = <SubstrateConfig as Config>::Hasher;
     type Header = <SubstrateConfig as Config>::Header;
-    type ExtrinsicParams = WestmintExtrinsicParams<Self>;
+    type ExtrinsicParams = signed_extensions::AnyOf<
+        Self,
+        (
+            // Load in the existing signed extensions we're interested in
+            // (if the extension isn't actually needed it'll just be ignored):
+            signed_extensions::CheckSpecVersion,
+            signed_extensions::CheckTxVersion,
+            signed_extensions::CheckNonce,
+            signed_extensions::CheckGenesis<Self>,
+            signed_extensions::CheckMortality<Self>,
+            signed_extensions::ChargeAssetTxPayment,
+            signed_extensions::ChargeTransactionPayment,
+            // And add a new one of our own:
+            ChargeAssetTxPayment,
+        ),
+    >;
 }
 
-/// A struct representing the signed extra and additional parameters required
-/// to construct a transaction for the default substrate node.
-pub type WestmintExtrinsicParams<T> = BaseExtrinsicParams<T, AssetTip>;
+/// The [`ChargeAssetTxPayment`] signed extension.
+#[derive(Debug)]
+pub struct ChargeAssetTxPayment {
+    tip: Compact<u128>,
+    asset_id: Option<MultiLocation>,
+}
 
-/// A builder which leads to [`SubstrateExtrinsicParams`] being constructed.
-/// This is what you provide to methods like `sign_and_submit()`.
-pub type WestmintExtrinsicParamsBuilder<T> = BaseExtrinsicParamsBuilder<T, AssetTip>;
-
-/// A tip payment made in the form of a specific asset.
-#[derive(Debug, Default, Encode)]
-pub struct AssetTip {
-    #[codec(compact)]
+/// Parameters to configure the [`ChargeAssetTxPayment`] signed extension.
+#[derive(Default)]
+pub struct ChargeAssetTxPaymentParams {
     tip: u128,
-    asset: Option<MultiLocation>,
+    asset_id: Option<MultiLocation>,
 }
 
-impl AssetTip {
-    /// Create a new tip of the amount provided.
-    pub fn new(amount: u128) -> Self {
-        AssetTip {
-            tip: amount,
-            asset: None,
+impl ChargeAssetTxPaymentParams {
+    /// Don't provide a tip to the extrinsic author.
+    pub fn no_tip() -> Self {
+        ChargeAssetTxPaymentParams {
+            tip: 0,
+            asset_id: None,
         }
     }
-
-    /// Designate the tip as being of a particular asset class.
-    /// If this is not set, then the native currency is used.
-    pub fn of_asset(mut self, asset: MultiLocation) -> Self {
-        self.asset = Some(asset);
-        self
+    /// Tip the extrinsic author in the native chain token.
+    pub fn tip(tip: u128) -> Self {
+        ChargeAssetTxPaymentParams {
+            tip,
+            asset_id: None,
+        }
+    }
+    /// Tip the extrinsic author using the asset ID given.
+    pub fn tip_of(tip: u128, asset_id: MultiLocation) -> Self {
+        ChargeAssetTxPaymentParams {
+            tip,
+            asset_id: Some(asset_id),
+        }
     }
 }
 
-impl From<u128> for AssetTip {
-    fn from(n: u128) -> Self {
-        AssetTip::new(n)
+impl<T: Config> ExtrinsicParams<T> for ChargeAssetTxPayment {
+    type OtherParams = ChargeAssetTxPaymentParams;
+    type Error = std::convert::Infallible;
+
+    fn new<Client: OfflineClientT<T>>(
+        _nonce: u64,
+        _client: Client,
+        other_params: Self::OtherParams,
+    ) -> Result<Self, Self::Error> {
+        Ok(ChargeAssetTxPayment {
+            tip: Compact(other_params.tip),
+            asset_id: other_params.asset_id,
+        })
     }
+}
+
+impl ExtrinsicParamsEncoder for ChargeAssetTxPayment {
+    fn encode_extra_to(&self, v: &mut Vec<u8>) {
+        let asset_id = &self.asset_id;
+        (self.tip, asset_id).encode_to(v);
+    }
+}
+
+impl<T: Config> signed_extensions::SignedExtension<T> for ChargeAssetTxPayment {
+    const NAME: &'static str = "ChargeAssetTxPayment";
+}
+
+pub fn custom(
+    params: DefaultExtrinsicParamsBuilder<CustomConfig>,
+    other_params: ChargeAssetTxPaymentParams,
+) -> <<CustomConfig as Config>::ExtrinsicParams as ExtrinsicParams<CustomConfig>>::OtherParams {
+    let (a, b, c, d, e, f, g) = params.build();
+    (a, b, c, d, e, f, g, other_params)
 }
 
 // `pallet-assets` create_asset call
@@ -181,11 +238,13 @@ async fn sign_and_send_batch_calls(
     calls: Vec<Call>,
 ) -> Result<(), subxt::Error> {
     let alice_pair_signer = dev::alice();
+
     let tx = local::tx().utility().batch_all(calls);
 
-    let tx_params = WestmintExtrinsicParamsBuilder::new();
+    let tx_params = DefaultExtrinsicParamsBuilder::new();
+    
     api.tx()
-        .sign_and_submit_then_watch(&tx, &alice_pair_signer, tx_params)
+        .sign_and_submit_then_watch(&tx, &alice_pair_signer, custom(tx_params, ChargeAssetTxPaymentParams::no_tip()))
         .await?
         .wait_for_in_block()
         .await?
@@ -258,14 +317,14 @@ async fn sign_and_send_transfer(
     let alice_pair_signer = dev::alice();
     let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
     
-    let tx_params = WestmintExtrinsicParamsBuilder::new().tip(AssetTip::new(0).of_asset(multi));
+    let tx_params = DefaultExtrinsicParamsBuilder::new();
     
     // Here we send the Native asset transfer and wait for it to be finalized, while
     // listening for the `AssetTxFeePaid` event that confirms we succesfully paid
     // the fees with our custom asset
     api
     .tx()
-    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_params)
+    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, custom(tx_params, ChargeAssetTxPaymentParams::tip_of(0, multi)))
     .await?
     .wait_for_finalized_success()
     .await?
@@ -329,7 +388,7 @@ async fn main() {
     let _setup = prepare_setup(api.clone()).await;
 
     // Give it a little time for the tx to be included in the blocks
-    std::thread::sleep(std::time::Duration::from_secs(2));
+    std::thread::sleep(std::time::Duration::from_secs(24));
 
     let dest: MultiAddress<AccountId32, ()> = dev::bob().public_key().into();
 
