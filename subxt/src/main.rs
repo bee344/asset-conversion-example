@@ -59,7 +59,6 @@ impl Config for CustomConfig {
             signed_extensions::CheckNonce,
             signed_extensions::CheckGenesis<Self>,
             signed_extensions::CheckMortality<Self>,
-            signed_extensions::ChargeAssetTxPayment,
             signed_extensions::ChargeTransactionPayment,
             // And add a new one of our own:
             ChargeAssetTxPayment,
@@ -136,8 +135,8 @@ pub fn custom(
     params: DefaultExtrinsicParamsBuilder<CustomConfig>,
     other_params: ChargeAssetTxPaymentParams,
 ) -> <<CustomConfig as Config>::ExtrinsicParams as ExtrinsicParams<CustomConfig>>::OtherParams {
-    let (a, b, c, d, e, f, g) = params.build();
-    (a, b, c, d, e, f, g, other_params)
+    let (a, b, c, d, e, _, g) = params.build();
+    (a, b, c, d, e, g, other_params)
 }
 
 // `pallet-assets` create_asset call
