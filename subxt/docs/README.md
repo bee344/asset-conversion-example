@@ -32,70 +32,122 @@ And there you go, you can check the outputs for the different stages of the exam
 
 ### Setup
 
-First, since subxt doesn't have a specific config for Asset Hub Westend and the ones available for [Polkadot](https://github.com/paritytech/subxt/blob/c8462defabad10a2c09f945737731e7259f809dd/subxt/src/config/polkadot.rs#L16C1-L24C1) and [Substrate](https://github.com/paritytech/subxt/blob/c8462defabad10a2c09f945737731e7259f809dd/subxt/src/config/substrate.rs#L19C1-L28C1) don't contain the `ChargeAssetConversionTxPayment` [signed extension](https://github.com/paritytech/subxt/blob/master/subxt/src/config/signed_extensions.rs) , we have to create our own custom config:
+First, since subxt doesn't have a specific config for Asset Hub Westend and the ones available for [Polkadot](https://github.com/paritytech/subxt/blob/c8462defabad10a2c09f945737731e7259f809dd/subxt/src/config/polkadot.rs#L16C1-L24C1) and [Substrate](https://github.com/paritytech/subxt/blob/c8462defabad10a2c09f945737731e7259f809dd/subxt/src/config/substrate.rs#L19C1-L28C1) don't contain the `ChargeAssetConversionTxPayment` [signed extension](https://github.com/paritytech/subxt/blob/master/subxt/src/config/signed_extensions.rs) , we have to create our own custom config, reutilizing the existing Signed Extensions provided by `subxt` and adding our own version
+of the `ChargeAssetTxPayment`:
 
 ```rust
 pub enum CustomConfig {}
 
 impl Config for CustomConfig {
-
     type Hash = <SubstrateConfig as Config>::Hash;
-	type AccountId = <SubstrateConfig as Config>::AccountId;
-	type Address = <PolkadotConfig as Config>::Address;
-	type Signature = <SubstrateConfig as Config>::Signature;
-	type Hasher = <SubstrateConfig as Config>::Hasher;
-	type Header = <SubstrateConfig as Config>::Header;
-	type ExtrinsicParams = WestmintExtrinsicParams<Self>;
-
+    type AccountId = <SubstrateConfig as Config>::AccountId;
+    type Address = <PolkadotConfig as Config>::Address;
+    type Signature = <SubstrateConfig as Config>::Signature;
+    type Hasher = <SubstrateConfig as Config>::Hasher;
+    type Header = <SubstrateConfig as Config>::Header;
+    type ExtrinsicParams = signed_extensions::AnyOf<
+        Self,
+        (
+            signed_extensions::CheckSpecVersion,
+            signed_extensions::CheckTxVersion,
+            signed_extensions::CheckNonce,
+            signed_extensions::CheckGenesis<Self>,
+            signed_extensions::CheckMortality<Self>,
+            signed_extensions::ChargeTransactionPayment,
+            ChargeAssetTxPayment,
+        ),
+    >;
 }
 ```
 
-Setup the `ExtrinsicParams` as `WestmintExtrinsicParams<T>` and its builder as 
-`WestmintExtrinsicParamsBuilder<T>` using the `BaseExtrinsicParams` and 
-`BaseExtrinsicParamsBuilder` and adding the `AssetTip` struct to pass the 
-`MultiLocation` of the Custom Asset in the form of a "tip".
+Now we define and implement `ChargeAssetTxPayment` in the same way as the original, 
+but having it accept a `MultiLocation` for the `assetId`:
 
 ```rust
-pub type WestmintExtrinsicParams<T> = BaseExtrinsicParams<T, AssetTip>;
-pub type WestmintExtrinsicParamsBuilder<T> = BaseExtrinsicParamsBuilder<T, AssetTip>;
-```
-And also create the `AssetTip` we want to add to the config:
-
-```rust
-#[derive(Debug, Default, Encode)]
-
-pub struct AssetTip {
-    #[codec(compact)]
-    tip: u128,
-    asset: Option<MultiLocation>,
+#[derive(Debug)]
+pub struct ChargeAssetTxPayment {
+    tip: Compact<u128>,
+    asset_id: Option<MultiLocation>,
 }
 
-impl AssetTip {
-
-    pub fn new(amount: u128) -> Self {
-        AssetTip {
-            tip: amount,
-            asset: None,
+impl ChargeAssetTxPaymentParams {
+    /// Don't provide a tip to the extrinsic author.
+    pub fn no_tip() -> Self {
+        ChargeAssetTxPaymentParams {
+            tip: 0,
+            asset_id: None,
         }
     }
-
-    pub fn of_asset(mut self, asset: MultiLocation) -> Self {
-        self.asset = Some(asset);
-
-        self
+    /// Tip the extrinsic author in the native chain token.
+    pub fn tip(tip: u128) -> Self {
+        ChargeAssetTxPaymentParams {
+            tip,
+            asset_id: None,
+        }
     }
-}
-
-impl From<u128> for AssetTip {
-
-    fn from(n: u128) -> Self {
-        AssetTip::new(n)
+    /// Tip the extrinsic author using the asset ID given.
+    pub fn tip_of(tip: u128, asset_id: MultiLocation) -> Self {
+        ChargeAssetTxPaymentParams {
+            tip,
+            asset_id: Some(asset_id),
+        }
     }
-
 }
 ```
 
-For this we use the runtime metadata corresponding to our node and some types we retrieve from it:
+We define the parameters for the `SignedExtension`:
+
+```rust
+impl<T: Config> ExtrinsicParams<T> for ChargeAssetTxPayment {
+    type OtherParams = ChargeAssetTxPaymentParams;
+    type Error = std::convert::Infallible;
+
+    fn new<Client: OfflineClientT<T>>(
+        _nonce: u64,
+        _client: Client,
+        other_params: Self::OtherParams,
+    ) -> Result<Self, Self::Error> {
+        Ok(ChargeAssetTxPayment {
+            tip: Compact(other_params.tip),
+            asset_id: other_params.asset_id,
+        })
+    }
+}
+```
+
+And we implement the encoder to make sure it's encoded correctly and give it a
+name:
+
+```rust
+impl ExtrinsicParamsEncoder for ChargeAssetTxPayment {
+    fn encode_extra_to(&self, v: &mut Vec<u8>) {
+        let asset_id = &self.asset_id;
+        (self.tip, asset_id).encode_to(v);
+    }
+}
+
+impl<T: Config> signed_extensions::SignedExtension<T> for ChargeAssetTxPayment {
+    const NAME: &'static str = "ChargeAssetTxPayment";
+}
+```
+
+Finally, we define our custom builder that intakes `DefaultExtrinsicParamsBuilder`
+with our `CustomConfig` and the additional parameters of `ChargeAssetTxPaymentParams`.
+Note that we ignore the part of `DefaultExtrinsicParamsBuilder` where the original
+`ChargeAssetTxPayment` is located, to avoid name collision:
+
+```rust
+pub fn custom(
+    params: DefaultExtrinsicParamsBuilder<CustomConfig>,
+    other_params: ChargeAssetTxPaymentParams,
+) -> <<CustomConfig as Config>::ExtrinsicParams as ExtrinsicParams<CustomConfig>>::OtherParams {
+    let (a, b, c, d, e, _, g) = params.build();
+    (a, b, c, d, e, g, other_params)
+}
+```
+
+For this we use the runtime metadata corresponding to our node and some types we
+retrieve from it:
 
 ```rust
 #[subxt::subxt(runtime_metadata_path = "../artifacts/asset_hub_metadata.scale")]
@@ -222,29 +274,29 @@ async fn convert_fees(
 Now we can finally make our transfer and pay the fees with our Non-Native Asset. For this we have to add our own custom function to compose the tuple of signed extensions, adding the `MultiLocation` of our Non-Native Asset as a parameter:
 ```rust
 async fn sign_and_send_transfer(
-	api: OnlineClient<CustomConfig>,
-	dest: MultiAddress<AccountId32, ()>,
-	amount: u128,
-	multi: MultiLocation,
-	) -> Result<(), subxt::Error> {
-	
-		let alice_pair_signer = dev::alice();
-		
-		let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
-				
-		let tx_params = WestmintExtrinsicParamsBuilder::new().tip(AssetTip::new(0).of_asset(multi));
-		
-		api
-		.tx()
-		.sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_params)
-		.await?
-		.wait_for_finalized_success()
-		.await?
-		.has::<local::asset_conversion_tx_payment::events::AssetTxFeePaid>()?;
-		
-		println!("Balance transfer submitted and fee paid succesfully");
-		
-		Ok(())
+    api: OnlineClient<CustomConfig>,
+    dest: MultiAddress<AccountId32, ()>,
+    amount: u128,
+    multi: MultiLocation,
+) -> Result<(), subxt::Error> {
+    let alice_pair_signer = dev::alice();
+    let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
+    
+    let tx_params = DefaultExtrinsicParamsBuilder::new();
+    
+    // Here we send the Native asset transfer and wait for it to be finalized, while
+    // listening for the `AssetTxFeePaid` event that confirms we succesfully paid
+    // the fees with our custom asset
+    api
+    .tx()
+    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, custom(tx_params, ChargeAssetTxPaymentParams::tip_of(0, multi)))
+    .await?
+    .wait_for_finalized_success()
+    .await?
+    .has::<local::asset_conversion_tx_payment::events::AssetTxFeePaid>()?;
+    
+    println!("Balance transfer submitted and fee paid succesfully");
+    Ok(())
 }
 ```
 
