@@ -71,21 +71,18 @@ pub struct ChargeAssetTxPayment {
 }
 
 impl ChargeAssetTxPaymentParams {
-    /// Don't provide a tip to the extrinsic author.
     pub fn no_tip() -> Self {
         ChargeAssetTxPaymentParams {
             tip: 0,
             asset_id: None,
         }
     }
-    /// Tip the extrinsic author in the native chain token.
     pub fn tip(tip: u128) -> Self {
         ChargeAssetTxPaymentParams {
             tip,
             asset_id: None,
         }
     }
-    /// Tip the extrinsic author using the asset ID given.
     pub fn tip_of(tip: u128, asset_id: MultiLocation) -> Self {
         ChargeAssetTxPaymentParams {
             tip,
