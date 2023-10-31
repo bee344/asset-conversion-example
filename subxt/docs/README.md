@@ -162,9 +162,9 @@ type AssetConversionCall = local::runtime_types::pallet_asset_conversion::pallet
 type AssetsCall = local::runtime_types::pallet_assets::pallet::Call;
 ```
 
-### Asset and Liqudity Pool Creation
+### Asset and Liquidity Pool Creation
 
-After that, we proceed to create a batch of transactions in which we crate the asset and set its metadata, as well as creating the liqudity pool and adding liquidity to it, minting liquidity pool tokens:
+After that, we proceed to create a batch of transactions in which we create the asset and set its metadata, as well as creating the liquidity pool and adding liquidity to it, minting liquidity pool tokens:
 
 ```rust
 async fn prepare_setup(api: OnlineClient<CustomConfig>) {
@@ -308,7 +308,7 @@ We could also use `asset_conversion::events::SwapExecuted` as an indicator since
 
 And if we look closely, the amount paid is close to our estimation.
 
-![](/subxt/docs/img/20230917210812.png)
+![](/subxt/docs/img/20230917210813.png)
 
 ## Conclusion
 

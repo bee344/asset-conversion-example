@@ -12,7 +12,7 @@ async function main() {
                         {
                             methods: {
                                 quote_price_exact_tokens_for_tokens: {
-                                    description: 'Quote price: tokens for exact tokens',
+                                    description: 'Quote price: exact tokens for tokens',
                                     params: [
                                         {
                                             name: 'asset1',
