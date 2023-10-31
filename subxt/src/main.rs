@@ -33,8 +33,8 @@ type AssetsCall = local::runtime_types::pallet_assets::pallet::Call;
 
 // Asset details
 const ASSET_ID: u32 = 1;
-const NAME: &str = "Asset1";
-const SYMBOL: &str = "A1";
+const NAME: &str = "Testy";
+const SYMBOL: &str = "TSTY";
 const URI: &str = "ws://127.0.0.1:9944";
 
 // This is our custom configuration for the signed extensions.
@@ -268,7 +268,7 @@ async fn estimate_fees(
     
     let partial_fee: u128 = signed.partial_fee_estimate().await.unwrap();
     
-    println!("The estimated fee is: {partial_fee} Plancks");
+    println!("\nThe estimated fee is: {partial_fee} Plancks\n");
 
     Ok(partial_fee)
 }
@@ -299,7 +299,7 @@ async fn convert_fees(
 
     let converted_fee = api.runtime_api().at_latest().await.unwrap().call(runtime_apis).await.unwrap();
 
-    println!("The estimated fee in the custom asset is: {:#}", converted_fee.unwrap());
+    println!("\nThe estimated fee in the custom asset is: {:#} TSTY\n", converted_fee.unwrap());
 
     Ok(())
 }
