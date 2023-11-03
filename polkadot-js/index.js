@@ -97,7 +97,7 @@ async function main() {
      * for managing the liquidity pool and to pass it as the assetId to pay for
      * the tx fees.
      */
-    const asset = api.registry.createType('MultiLocation', {
+    const asset = {
         parents: 0,
         interior: {
             X2: [
@@ -106,19 +106,18 @@ async function main() {
             ]
         }
 
-    });
+    };
 
     /**
      * We create the native asset's MultiLocation, we will need it for managing
      * the liquidity pool.
      */
-    const native = api.registry.createType('MultiLocation', {
+    const native = {
         parents: 1,
         interior: {
             Here: '',
         },
-    },
-    );
+    };
 
     /**
      * Here we define an empty array to collect the txs necessary for creating 
