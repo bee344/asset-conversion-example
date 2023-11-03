@@ -95,9 +95,9 @@ const apiConfigRuntime = {
 };
 ```
 
-### Asset and Liqudity Pool Creation
+### Asset and Liquidity Pool Creation
 
-After that, we proceed to create a batch of transactions in which we crate the asset and set its metadata, as well as creating the liqudity pool and adding liquidity to it, minting liquidity pool tokens, after defining our Native and Custom Assets in the shape of MultiLocations:
+After that, we proceed to create a batch of transactions in which we create the asset and set its metadata, as well as creating the liquidity pool and adding liquidity to it, minting liquidity pool tokens, after defining our Native and Custom Assets in the shape of MultiLocations:
 
 ```js
 const asset = api.registry.createType('MultiLocation', {
