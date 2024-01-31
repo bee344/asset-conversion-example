@@ -6,7 +6,7 @@ async function main() {
 
     const apiConfigRuntime = {
         spec: {
-            westmint: {
+            statemine: {
                 runtime: {
                     AssetConversionApi: [
                         {
@@ -42,6 +42,7 @@ async function main() {
         },
     };
 
+
     /**
      * Here we define the main aspects of our custom asset
      */
@@ -52,29 +53,16 @@ async function main() {
     const ASSET_MIN = 1;
 
     /**
-     * Now we set our local Westend Asset Hub node as the wsProvider 
+     * Now we set our local Asset Hub node as the wsProvider 
      */
     const wsProvider = new WsProvider("ws://127.0.0.1:9944");
 
     /**
      * We use the wsProvider defined above to create the ApiPromise.
-     * We also use the opportunity to inject the [`ChargeAssetTxPayment`]
-     * signed extension as defined in the pallet-asset-conversion-tx-payment.
-     * We do this in order to support passing a MultiLocation as the assetId to
-     * use a custom asset to pay for the fees.
      */
     const api = await ApiPromise.create({
         provider: wsProvider,
         typesBundle: apiConfigRuntime,
-        signedExtensions: {
-            ChargeAssetTxPayment: {
-                extrinsic: {
-                    tip: 'Compact<Balance>',
-                    assetId: 'Option<MultiLocation>'
-                },
-                payload: {}
-            },
-        },
     },
     );
 
@@ -127,6 +115,7 @@ async function main() {
     const setupTxs = [];
     const create = api.tx.assets.create(ASSET_ID, alice.address, ASSET_MIN);
     const setMetadata = api.tx.assets.setMetadata(ASSET_ID, ASSET_NAME, ASSET_TICKER, ASSET_DECIMALS);
+    const status = api.tx.assets.forceAssetStatus(ASSET_ID, alice.address, alice.address, alice.address, alice.address, ASSET_MIN, true, false)
     const mint = api.tx.assets.mint(ASSET_ID, alice.address, 100000000);
     const createPool = api.tx.assetConversion.createPool(native, asset);
     const addLiquidity = api.tx.assetConversion.addLiquidity(native, asset, 1000000000000, 500000, 0, 0, alice.address);
@@ -172,9 +161,12 @@ async function main() {
      * Now we just send a regular transfer specifying the
      * custom asset's MultiLocation as the assetId to pay for the fees.
      */
-    await api.tx.balances
+    const send = await api.tx.balances
         .transferKeepAlive(bob.address, 2000000)
-        .signAndSend(alice, { assetId: asset });
+        .signAsync(alice, { assetId: asset });
+    console.log(send.toHuman());
+
+    await send.send();
 
     console.log(`\nTransaction successful`);
 }

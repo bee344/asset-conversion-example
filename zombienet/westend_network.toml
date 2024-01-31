@@ -46,20 +46,3 @@ chain = "asset-hub-westend-local"
   command = "./zombienet/polkadot-parachain"
   ws_port = 9911
   args = ["--log=xcm=trace,pallet-assets=trace"]
-
-id = 1001
-add_to_genesis = true
-cumulus_based = true
-chain = "asset-hub-westend-local"
-
-  [[parachains.collators]]
-  name = "westmint-collator11"
-  command = "./zombienet/polkadot-parachain"
-  ws_port = 9920
-  args = ["--log=xcm=trace,pallet-assets=trace"]
-
-  [[parachains.collators]]
-  name = "westmint-collator12"
-  command = "./zombienet/polkadot-parachain"
-  ws_port = 9921
-  args = ["--log=xcm=trace,pallet-assets=trace"]
