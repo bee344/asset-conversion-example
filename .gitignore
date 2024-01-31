@@ -3,6 +3,10 @@
 subxt/target
 
 # Zombienet
-zombienet/*
+zombienet/polkadot
+zombienet/polkadot-parachain
+zombienet/polkadot-prepare-worker
+zombienet/polkadot-execute-worker
+zombienet/zombienet-linux-x64
 
 .vscode
