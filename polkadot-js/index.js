@@ -161,12 +161,12 @@ async function main() {
      * Now we just send a regular transfer specifying the
      * custom asset's MultiLocation as the assetId to pay for the fees.
      */
-    const send = await api.tx.balances
+    const tx = await api.tx.balances
         .transferKeepAlive(bob.address, 2000000)
         .signAsync(alice, { assetId: asset });
     console.log(send.toHuman());
 
-    await send.send();
+    await tx.send();
 
     console.log(`\nTransaction successful`);
 }

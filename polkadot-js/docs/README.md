@@ -34,21 +34,12 @@ And there you go, you can check the outputs for the different stages of the exam
 
 ### Setup
 
-First, since Polkadot-JS doesn't have the correct implementation of the `ChargeAssetTxPayment`, we have to inject our own, as shown above. The same happens with the fixed version of `assetConversionApi.quotePriceExactTokensForTokens`. Both corrections are injected as follows:
+Asset Hub Rococo doesn't support XcmV3MultiLocation, so the default implementation of the `assetConversionApi` will fail, for that we have to inject a version which uses `MultiLocation` instead, so that we can use `assetConversionApi.quotePriceExactTokensForTokens`. This correction is injected as follows:
 
 ```js
 const api = await ApiPromise.create({
         provider: wsProvider,
         typesBundle: apiConfigRuntime,
-        signedExtensions: {
-            ChargeAssetTxPayment: {
-                extrinsic: {
-                    tip: 'Compact<Balance>',
-                    assetId: 'Option<MultiLocation>'
-                },
-                payload: {}
-            },
-        },
     },
     );
 ```
@@ -58,7 +49,7 @@ With the modified version of `assetConversionApi.quotePriceExactTokensForTokens`
 ```js
 const apiConfigRuntime = {
 	spec: {
-		westmint: {
+		statemine: {
 			runtime: {
 				AssetConversionApi: [
 					{
@@ -100,7 +91,7 @@ const apiConfigRuntime = {
 After that, we proceed to create a batch of transactions in which we create the asset and set its metadata, as well as creating the liquidity pool and adding liquidity to it, minting liquidity pool tokens, after defining our Native and Custom Assets in the shape of MultiLocations:
 
 ```js
-const asset = api.registry.createType('MultiLocation', {
+const asset = {
 	parents: 0,
 	interior: {
 		X2: [
@@ -109,15 +100,14 @@ const asset = api.registry.createType('MultiLocation', {
 		]
 	}
 
-});
+};
 
-const native = api.registry.createType('MultiLocation', {
+const native = {
 	parents: 1,
 	interior: {
 		Here: '',
 	},
-},
-);
+};
 
 const setupTxs = [];
 const create = api.tx.assets.create(ASSET_ID, alice.address, ASSET_MIN);
@@ -160,10 +150,14 @@ const convertedFee = await api.call.assetConversionApi.quotePriceExactTokensForT
 
 Now we can finally make our transfer and pay the fees with our Non-Native Asset. For this we just have to specify the `MultiLocation` of our Non-Native Asset as the `assetId`:
 ```js
-await api.tx.balances
-	.transferKeepAlive(bob.address, 2000000)
-	.signAndSend(alice, { assetId: asset });
-``` 
+	const tx = await api.tx.balances
+		.transferKeepAlive(bob.address, 2000000)
+		.signAsync(alice, { assetId: asset });
+
+	tx.send(alice)
+```
+To then send the transfer:
+
 And here we can see when the Tx Fee was paid with our Custom Asset:
 
 ![](/polkadot-js/docs/img/20230917210356.png)
