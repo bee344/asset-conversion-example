@@ -8,7 +8,7 @@ The example using Polkadot-JS API can be found explained [here](./polkadot-js/do
 
 ### Txwrapper
 
-The example using Txwrapper can be found explained [here](./txwrapper/docs/README.md).
+The example using Txwrapper can be found explained [here](https://github.com/paritytech/txwrapper-core/tree/main/packages/txwrapper-examples/assetHubKusama).
 
 ### Subxt
 
@@ -16,6 +16,6 @@ The example using Subxt can be found explained [here](./subxt/docs/README.md).
 
 ### Asset Transfer API
 
-The example using the ATA can be found explained [here](./asset-transfer-api/docs/README.md).
+The example using the ATA can be found explained [here](https://github.com/paritytech/asset-transfer-api/tree/main/examples).
 
 **NOTE: All examples were ran against clients v1.6.0**
