@@ -1,15 +1,11 @@
-use codec::{Encode, Compact};
 use subxt::{
     OnlineClient,
-    client::OfflineClientT, 
     config::{
-        ExtrinsicParams,
-        ExtrinsicParamsEncoder,
         DefaultExtrinsicParamsBuilder,
+        DefaultExtrinsicParams,
         Config,
         PolkadotConfig, 
         SubstrateConfig, 
-        signed_extensions,
         }, 
         utils::{
             AccountId32, MultiAddress
@@ -18,18 +14,23 @@ use subxt::{
 use subxt_signer::sr25519::dev::{self};
 
 // Metadata that we'll use for our example
-#[subxt::subxt(runtime_metadata_path = "./metadata/asset_hub_metadata.scale")]
+#[subxt::subxt(runtime_metadata_path = "./metadata/asset_hub_metadata.scale",
+derive_for_type(
+    path = "staging_xcm::v3::multilocation::MultiLocation",
+    derive = "Clone",
+    recursive
+))]
 pub mod local {}
 
 // Types that we retrieve from the Metadata for our example
 type MultiLocation = local::runtime_types::staging_xcm::v3::multilocation::MultiLocation;
 
-use local::runtime_types::staging_xcm::v3::junction::Junction::{GeneralIndex, PalletInstance};
-use local::runtime_types::staging_xcm::v3::junctions::Junctions::{Here, X2};
+use local::runtime_types::xcm::v3::junction::Junction::{GeneralIndex, PalletInstance};
+use local::runtime_types::xcm::v3::junctions::Junctions::{Here, X2};
 
 type Call = local::runtime_types::asset_hub_westend_runtime::RuntimeCall;
-type AssetConversionCall = local::runtime_types::pallet_asset_conversion::pallet::Call;
-type AssetsCall = local::runtime_types::pallet_assets::pallet::Call;
+type AssetConversionCall = local::asset_conversion::Call;
+type AssetsCall = local::assets::Call;
 
 // Asset details
 const ASSET_ID: u32 = 1;
@@ -49,94 +50,9 @@ impl Config for CustomConfig {
     type Signature = <SubstrateConfig as Config>::Signature;
     type Hasher = <SubstrateConfig as Config>::Hasher;
     type Header = <SubstrateConfig as Config>::Header;
-    type ExtrinsicParams = signed_extensions::AnyOf<
-        Self,
-        (
-            // Load in the existing signed extensions we're interested in
-            // (if the extension isn't actually needed it'll just be ignored):
-            signed_extensions::CheckSpecVersion,
-            signed_extensions::CheckTxVersion,
-            signed_extensions::CheckNonce,
-            signed_extensions::CheckGenesis<Self>,
-            signed_extensions::CheckMortality<Self>,
-            signed_extensions::ChargeTransactionPayment,
-            // And add a new one of our own:
-            ChargeAssetTxPayment,
-        ),
-    >;
-}
+    type ExtrinsicParams = DefaultExtrinsicParams<CustomConfig>;
+    type AssetId = MultiLocation;
 
-/// The [`ChargeAssetTxPayment`] signed extension.
-#[derive(Debug)]
-pub struct ChargeAssetTxPayment {
-    tip: Compact<u128>,
-    asset_id: Option<MultiLocation>,
-}
-
-/// Parameters to configure the [`ChargeAssetTxPayment`] signed extension.
-#[derive(Default)]
-pub struct ChargeAssetTxPaymentParams {
-    tip: u128,
-    asset_id: Option<MultiLocation>,
-}
-
-impl ChargeAssetTxPaymentParams {
-    /// Don't provide a tip to the extrinsic author.
-    pub fn no_tip() -> Self {
-        ChargeAssetTxPaymentParams {
-            tip: 0,
-            asset_id: None,
-        }
-    }
-    /// Tip the extrinsic author in the native chain token.
-    pub fn tip(tip: u128) -> Self {
-        ChargeAssetTxPaymentParams {
-            tip,
-            asset_id: None,
-        }
-    }
-    /// Tip the extrinsic author using the asset ID given.
-    pub fn tip_of(tip: u128, asset_id: MultiLocation) -> Self {
-        ChargeAssetTxPaymentParams {
-            tip,
-            asset_id: Some(asset_id),
-        }
-    }
-}
-
-impl<T: Config> ExtrinsicParams<T> for ChargeAssetTxPayment {
-    type OtherParams = ChargeAssetTxPaymentParams;
-    type Error = std::convert::Infallible;
-
-    fn new<Client: OfflineClientT<T>>(
-        _nonce: u64,
-        _client: Client,
-        other_params: Self::OtherParams,
-    ) -> Result<Self, Self::Error> {
-        Ok(ChargeAssetTxPayment {
-            tip: Compact(other_params.tip),
-            asset_id: other_params.asset_id,
-        })
-    }
-}
-
-impl ExtrinsicParamsEncoder for ChargeAssetTxPayment {
-    fn encode_extra_to(&self, v: &mut Vec<u8>) {
-        let asset_id = &self.asset_id;
-        (self.tip, asset_id).encode_to(v);
-    }
-}
-
-impl<T: Config> signed_extensions::SignedExtension<T> for ChargeAssetTxPayment {
-    const NAME: &'static str = "ChargeAssetTxPayment";
-}
-
-pub fn custom(
-    params: DefaultExtrinsicParamsBuilder<CustomConfig>,
-    other_params: ChargeAssetTxPaymentParams,
-) -> <<CustomConfig as Config>::ExtrinsicParams as ExtrinsicParams<CustomConfig>>::OtherParams {
-    let (a, b, c, d, e, _, g) = params.build();
-    (a, b, c, d, e, g, other_params)
 }
 
 // `pallet-assets` create_asset call
@@ -186,15 +102,20 @@ fn mint_token_call(
 
 // We will use this to create the liquidity pool with a Native asset and our Custom asset
 fn create_pool_with_native_call() -> Result<Call, Box<dyn std::error::Error>> {
+    // Native Asset MultiLocation
+    let asset1: MultiLocation = MultiLocation {
+        parents: 1,
+        interior: Here,
+    };
+    // Our Custom Asset MultiLocation
+    // PalletInstance(50) refers to the pallet-assets in Asset Hub Westend 
+    let asset2: MultiLocation = MultiLocation {
+        parents: 0,
+        interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
+    };
     let call = Call::AssetConversion(AssetConversionCall::create_pool {
-        asset1: MultiLocation {
-            parents: 1,
-            interior: Here,
-        },
-        asset2: MultiLocation {
-            parents: 0,
-            interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
-        },
+        asset1,
+        asset2,
     });
 
     Ok(call)
@@ -208,18 +129,20 @@ fn provide_liquidity_to_token_native_pool_call(
     amount2_min: u128,
     mint_to: AccountId32,
 ) -> Result<Call, Box<dyn std::error::Error>> {
+    // Native Asset MultiLocation
+    let asset1: MultiLocation = MultiLocation {
+        parents: 1,
+        interior: Here,
+    };
+    // Our Custom Asset MultiLocation
+    // PalletInstance(50) refers to the pallet-assets in Asset Hub Westend 
+    let asset2: MultiLocation = MultiLocation {
+        parents: 0,
+        interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
+    };
     let call = Call::AssetConversion(AssetConversionCall::add_liquidity {
-        // Native Asset MultiLocation
-        asset1: MultiLocation {
-            parents: 1,
-            interior: Here,
-        },
-        // Our Custom Asset MultiLocation
-        // PalletInstance(50) refers to the pallet-assets in Asset Hub Westend 
-        asset2: MultiLocation {
-            parents: 0,
-            interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
-        },
+        asset1,
+        asset2,
         amount1_desired: amount1_desired,
         amount2_desired: amount2_desired,
         amount1_min: amount1_min,
@@ -240,14 +163,10 @@ async fn sign_and_send_batch_calls(
 
     let tx = local::tx().utility().batch_all(calls);
 
-    let tx_params = DefaultExtrinsicParamsBuilder::new();
-    
     api.tx()
-        .sign_and_submit_then_watch(&tx, &alice_pair_signer, custom(tx_params, ChargeAssetTxPaymentParams::no_tip()))
+        .sign_and_submit_then_watch(&tx, &alice_pair_signer, Default::default())
         .await?
-        .wait_for_in_block()
-        .await?
-        .wait_for_success()
+        .wait_for_finalized_success()
         .await?;
 
     Ok(())
@@ -316,18 +235,20 @@ async fn sign_and_send_transfer(
     let alice_pair_signer = dev::alice();
     let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
     
-    let tx_params = DefaultExtrinsicParamsBuilder::new();
+    let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
+    .tip_of(0, multi)
+    .build();
     
     // Here we send the Native asset transfer and wait for it to be finalized, while
     // listening for the `AssetTxFeePaid` event that confirms we succesfully paid
     // the fees with our custom asset
     api
     .tx()
-    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, custom(tx_params, ChargeAssetTxPaymentParams::tip_of(0, multi)))
+    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
     .await?
     .wait_for_finalized_success()
     .await?
-    .has::<local::asset_conversion_tx_payment::events::AssetTxFeePaid>()?;
+    .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
     
     println!("Balance transfer submitted and fee paid succesfully");
     Ok(())
