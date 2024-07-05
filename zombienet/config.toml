@@ -2,13 +2,13 @@
 timeout = 1000
 
 [relaychain]
-chain = "rococo-local"
-default_command = "./zombienet/polkadot"
+chain = "westend-local"
+default_command = "./polkadot"
 
   [[relaychain.nodes]]
   name = "alice"
   validator = true
-  ws_port = 9900
+  ws_port = 9901
   extra_args = [ "-lparachain=debug" ]
 
   [[relaychain.nodes]]
@@ -33,16 +33,16 @@ default_command = "./zombienet/polkadot"
 id = 1000
 add_to_genesis = true
 cumulus_based = true
-chain = "asset-hub-rococo-local"
+chain = "asset-hub-westend-local"
 
   [[parachains.collators]]
   name = "statmine-collator01"
-  command = "./zombienet/polkadot-parachain"
+  command = "./polkadot-parachain"
   ws_port = 9944
   args = ["--log=xcm=trace,pallet-assets=trace"]
 
   [[parachains.collators]]
   name = "statmine-collator02"
-  command = "./zombienet/polkadot-parachain"
+  command = "./polkadot-parachain"
   ws_port = 9911
   args = ["--log=xcm=trace,pallet-assets=trace"]
