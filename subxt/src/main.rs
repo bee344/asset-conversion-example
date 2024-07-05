@@ -103,16 +103,16 @@ fn mint_token_call(
 // We will use this to create the liquidity pool with a Native asset and our Custom asset
 fn create_pool_with_native_call() -> Result<Call, Box<dyn std::error::Error>> {
     // Native Asset MultiLocation
-    let asset1: MultiLocation = MultiLocation {
+    let asset1: Box<MultiLocation> = Box::new(MultiLocation {
         parents: 1,
         interior: Here,
-    };
+    });
     // Our Custom Asset MultiLocation
     // PalletInstance(50) refers to the pallet-assets in Asset Hub Westend 
-    let asset2: MultiLocation = MultiLocation {
+    let asset2: Box<MultiLocation> = Box::new(MultiLocation {
         parents: 0,
         interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
-    };
+    });
     let call = Call::AssetConversion(AssetConversionCall::create_pool {
         asset1,
         asset2,
@@ -130,16 +130,16 @@ fn provide_liquidity_to_token_native_pool_call(
     mint_to: AccountId32,
 ) -> Result<Call, Box<dyn std::error::Error>> {
     // Native Asset MultiLocation
-    let asset1: MultiLocation = MultiLocation {
+    let asset1: Box<MultiLocation> = Box::new(MultiLocation {
         parents: 1,
         interior: Here,
-    };
+    });
     // Our Custom Asset MultiLocation
     // PalletInstance(50) refers to the pallet-assets in Asset Hub Westend 
-    let asset2: MultiLocation = MultiLocation {
+    let asset2: Box<MultiLocation> = Box::new(MultiLocation {
         parents: 0,
         interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
-    };
+    });
     let call = Call::AssetConversion(AssetConversionCall::add_liquidity {
         asset1,
         asset2,
@@ -198,11 +198,11 @@ async fn convert_fees(
     api: OnlineClient<CustomConfig>,
     amount: u128,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let native = MultiLocation {
+    let native: MultiLocation = MultiLocation {
         parents: 1,
         interior: Here,
     };
-    let asset = MultiLocation {
+    let asset: MultiLocation = MultiLocation {
         parents: 0,
         interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),   
     };
