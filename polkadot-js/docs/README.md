@@ -8,11 +8,7 @@ Here we aim to illustrate how to use the `ChargeAssetConversionTxPayment` signed
 
 ## Environment
 
-For this example we will use [polkadot-js](https://polkadot.js.org/docs/). At the time of writing the `ChargeAssetConversionTxPayment` signed extension is not operational in the [polkadot-js api](https://github.com/polkadot-js/api/issues/5710) and subsequently it's not available in the tools that use the api, such as `txwrapper-core`. This issue is patched in our example, but a more permanent fix is expected: Same as with the 
-[`assetConversionApi.quotePriceExactTokensForTokens`](https://polkadot.js.org/docs/substrate/runtime#quotepriceexacttokensfortokensasset1-xcmv3multilocation-asset2-xcmv3multilocation-amount-u128-include_fee-bool-optionbalance) that expects `XcmV3MultiLocation` for the assets, while Asset Hub Westend only
-supports `MultiLocation`, problem patched by passing our own definition of `assetConversionApi.quotePriceExactTokensForTokens` at the time of creation of the ApiPromise.
-
-We will also use [zombienet](https://github.com/paritytech/zombienet) to spawn the Westend Relay Chain and Westend Asset Hub nodes. For this we use the binaries built from the [polkadot-sdk repo](https://github.com/paritytech/polkadot-sdk), with the consideration of building the polkadot binary with the flag `--features=fast-runtime`, in order to decrease the epoch time. We also need to build the [three binaries](https://github.com/paritytech/polkadot/pull/7337) for running the nodes as local.
+For this example we will use [polkadot-js](https://polkadot.js.org/docs/). We will also use [zombienet](https://github.com/paritytech/zombienet) to spawn the Westend Relay Chain and Westend Asset Hub nodes. For this we use the binaries built from the [polkadot-sdk repo](https://github.com/paritytech/polkadot-sdk), with the consideration of building the polkadot binary with the flag `--features=fast-runtime`, in order to decrease the epoch time. We also need to build the [three binaries](https://github.com/paritytech/polkadot/pull/7337) for running the nodes as local.
 
 ## Usage
 
