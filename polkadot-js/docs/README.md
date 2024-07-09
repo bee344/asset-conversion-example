@@ -24,7 +24,7 @@ First we define the asset ID of the Non-Native Asset to pay the fees of our tran
         }
     }
 ```
-This concrete XCM Multilocation corresponds to the asset ID of USDT in the `Asset Conversion Pallet`.
+This concrete XCM Multilocation corresponds to the asset ID of USDT in the `Assets Pallet`. Since this asset has a Liquidity Pool against the Native Asset, we can use it to pay for the fees.
 
 With the asset ID defined, we just need to construct the transaction. For this we assign the specified asset ID, `asset` as the `assetId`:
 ```js
