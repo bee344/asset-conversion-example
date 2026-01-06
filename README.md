@@ -16,6 +16,6 @@ The example using Subxt can be found explained [here](./subxt/docs/README.md).
 
 ### Asset Transfer API
 
-The example using the ATA can be found explained [here](https://github.com/paritytech/asset-transfer-api/tree/main/examples).
+The example using the ATA can be found explained [here](https://github.com/paritytech/asset-transfer-api/blob/main/examples/polkadot/assetHub/paysWithFeeOriginTransfers/dotToHydrationPaysWithGLMR.ts).
 
 **NOTE: All examples were ran against clients v1.6.0**
