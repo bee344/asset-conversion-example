@@ -3,6 +3,7 @@ use subxt::{
     config::{
         DefaultExtrinsicParamsBuilder,
         DefaultExtrinsicParams,
+        DefaultExtrinsicParams,
         Config,
         PolkadotConfig, 
         }, 
@@ -28,6 +29,8 @@ use local::runtime_types::staging_xcm::v5::junction::Junction::{GeneralIndex, Pa
 use local::runtime_types::staging_xcm::v5::junctions::Junctions::Here;
 
 type Call = local::runtime_types::asset_hub_westend_runtime::RuntimeCall;
+type AssetConversionCall = local::asset_conversion::Call;
+type AssetsCall = local::assets::Call;
 type AssetConversionCall = local::asset_conversion::Call;
 type AssetsCall = local::assets::Call;
 
@@ -160,9 +163,12 @@ async fn sign_and_send_batch_calls(
 
     let tx = local::tx().utility().batch_all(calls);
 
+
     api.tx()
         .sign_and_submit_then_watch(&tx, &alice_pair_signer, Default::default())
+        .sign_and_submit_then_watch(&tx, &alice_pair_signer, Default::default())
         .await?
+        .wait_for_finalized_success()
         .wait_for_finalized_success()
         .await?;
 
@@ -235,6 +241,9 @@ async fn sign_and_send_transfer(
     let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
     .tip_of(0, multi)
     .build();
+    let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
+    .tip_of(0, multi)
+    .build();
     
     // Here we send the Native asset transfer and wait for it to be finalized, while
     // listening for the `AssetTxFeePaid` event that confirms we succesfully paid
@@ -242,9 +251,11 @@ async fn sign_and_send_transfer(
     api
     .tx()
     .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
+    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
     .await?
     .wait_for_finalized_success()
     .await?
+    .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
     .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
     
     println!("Balance transfer submitted and fee paid succesfully");

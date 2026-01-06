@@ -4,6 +4,8 @@ timeout = 1000
 [relaychain]
 chain = "westend-local"
 default_command = "./polkadot"
+chain = "westend-local"
+default_command = "./polkadot"
 
   [[relaychain.nodes]]
   name = "alice"
@@ -33,6 +35,7 @@ default_command = "./polkadot"
 id = 1000
 add_to_genesis = true
 cumulus_based = true
+chain = "asset-hub-westend-local"
 chain = "asset-hub-westend-local"
 
   [[parachains.collators]]
