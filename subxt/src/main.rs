@@ -3,9 +3,9 @@ use subxt::{
     config::{
         DefaultExtrinsicParamsBuilder,
         DefaultExtrinsicParams,
+        DefaultExtrinsicParams,
         Config,
         PolkadotConfig, 
-        SubstrateConfig, 
         }, 
         utils::{
             AccountId32, MultiAddress
@@ -14,21 +14,23 @@ use subxt::{
 use subxt_signer::sr25519::dev::{self};
 
 // Metadata that we'll use for our example
-#[subxt::subxt(runtime_metadata_path = "./metadata/asset_hub_metadata.scale",
+#[subxt::subxt(runtime_metadata_path = "./metadata/metadata.scale",
 derive_for_type(
-    path = "staging_xcm::v3::multilocation::MultiLocation",
-    derive = "Clone",
+    path = "staging_xcm::v5::location::Location",
+    derive = "Clone, codec::Encode",
     recursive
 ))]
 pub mod local {}
 
 // Types that we retrieve from the Metadata for our example
-type MultiLocation = local::runtime_types::staging_xcm::v3::multilocation::MultiLocation;
+use local::runtime_types::staging_xcm::v5::location::Location;
 
-use local::runtime_types::xcm::v3::junction::Junction::{GeneralIndex, PalletInstance};
-use local::runtime_types::xcm::v3::junctions::Junctions::{Here, X2};
+use local::runtime_types::staging_xcm::v5::junction::Junction::{GeneralIndex, PalletInstance};
+use local::runtime_types::staging_xcm::v5::junctions::Junctions::Here;
 
 type Call = local::runtime_types::asset_hub_westend_runtime::RuntimeCall;
+type AssetConversionCall = local::asset_conversion::Call;
+type AssetsCall = local::assets::Call;
 type AssetConversionCall = local::asset_conversion::Call;
 type AssetsCall = local::assets::Call;
 
@@ -44,15 +46,13 @@ const URI: &str = "ws://127.0.0.1:9944";
 pub enum CustomConfig {}
 
 impl Config for CustomConfig {
-    type Hash = <SubstrateConfig as Config>::Hash;
-    type AccountId = <SubstrateConfig as Config>::AccountId;
+    type AccountId = <PolkadotConfig as Config>::AccountId;
     type Address = <PolkadotConfig as Config>::Address;
-    type Signature = <SubstrateConfig as Config>::Signature;
-    type Hasher = <SubstrateConfig as Config>::Hasher;
-    type Header = <SubstrateConfig as Config>::Header;
+    type Signature = <PolkadotConfig as Config>::Signature;
+    type Hasher = <PolkadotConfig as Config>::Hasher;
+    type Header = <PolkadotConfig as Config>::Header;
     type ExtrinsicParams = DefaultExtrinsicParams<CustomConfig>;
-    type AssetId = MultiLocation;
-
+    type AssetId = Location;
 }
 
 // `pallet-assets` create_asset call
@@ -102,16 +102,16 @@ fn mint_token_call(
 
 // We will use this to create the liquidity pool with a Native asset and our Custom asset
 fn create_pool_with_native_call() -> Result<Call, Box<dyn std::error::Error>> {
-    // Native Asset MultiLocation
-    let asset1: Box<MultiLocation> = Box::new(MultiLocation {
+    // Native Asset Location
+    let asset1: Box<Location> = Box::new(Location {
         parents: 1,
         interior: Here,
     });
-    // Our Custom Asset MultiLocation
+    // Our Custom Asset Location
     // PalletInstance(50) refers to the pallet-assets in Asset Hub Westend 
-    let asset2: Box<MultiLocation> = Box::new(MultiLocation {
+    let asset2: Box<Location> = Box::new(Location {
         parents: 0,
-        interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
+        interior: local::runtime_types::staging_xcm::v5::junctions::Junctions::X2([PalletInstance(50), GeneralIndex(ASSET_ID.into())]),
     });
     let call = Call::AssetConversion(AssetConversionCall::create_pool {
         asset1,
@@ -129,16 +129,16 @@ fn provide_liquidity_to_token_native_pool_call(
     amount2_min: u128,
     mint_to: AccountId32,
 ) -> Result<Call, Box<dyn std::error::Error>> {
-    // Native Asset MultiLocation
-    let asset1: Box<MultiLocation> = Box::new(MultiLocation {
+    // Native Asset Location
+    let asset1: Box<Location> = Box::new(Location {
         parents: 1,
         interior: Here,
     });
-    // Our Custom Asset MultiLocation
+    // Our Custom Asset Location
     // PalletInstance(50) refers to the pallet-assets in Asset Hub Westend 
-    let asset2: Box<MultiLocation> = Box::new(MultiLocation {
+    let asset2: Box<Location> = Box::new(Location {
         parents: 0,
-        interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
+        interior: local::runtime_types::staging_xcm::v5::junctions::Junctions::X2([PalletInstance(50), GeneralIndex(ASSET_ID.into())]),
     });
     let call = Call::AssetConversion(AssetConversionCall::add_liquidity {
         asset1,
@@ -163,9 +163,12 @@ async fn sign_and_send_batch_calls(
 
     let tx = local::tx().utility().batch_all(calls);
 
+
     api.tx()
         .sign_and_submit_then_watch(&tx, &alice_pair_signer, Default::default())
+        .sign_and_submit_then_watch(&tx, &alice_pair_signer, Default::default())
         .await?
+        .wait_for_finalized_success()
         .wait_for_finalized_success()
         .await?;
 
@@ -198,13 +201,13 @@ async fn convert_fees(
     api: OnlineClient<CustomConfig>,
     amount: u128,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let native: MultiLocation = MultiLocation {
+    let native: Location = Location {
         parents: 1,
         interior: Here,
     };
-    let asset: MultiLocation = MultiLocation {
+    let asset: Location = Location {
         parents: 0,
-        interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),   
+        interior: local::runtime_types::staging_xcm::v5::junctions::Junctions::X2([PalletInstance(50), GeneralIndex(ASSET_ID.into())]),
     };
     let amount = amount;
     let include_fee = true;
@@ -230,11 +233,14 @@ async fn sign_and_send_transfer(
     api: OnlineClient<CustomConfig>,
     dest: MultiAddress<AccountId32, ()>,
     amount: u128,
-    multi: MultiLocation,
+    multi: Location,
 ) -> Result<(), subxt::Error> {
     let alice_pair_signer = dev::alice();
     let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
     
+    let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
+    .tip_of(0, multi)
+    .build();
     let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
     .tip_of(0, multi)
     .build();
@@ -245,9 +251,11 @@ async fn sign_and_send_transfer(
     api
     .tx()
     .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
+    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
     .await?
     .wait_for_finalized_success()
     .await?
+    .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
     .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
     
     println!("Balance transfer submitted and fee paid succesfully");
@@ -318,9 +326,9 @@ async fn main() {
     let _converted_fee = convert_fees(api.clone(), fee.unwrap()).await;
 
     // Here we create and submit the native asset transfer passing the custom 
-    // asset's MultiLocation to pay the fees
-    let _result = sign_and_send_transfer(api.clone(), dest, 100000, MultiLocation {
+    // asset's Location to pay the fees
+    let _result = sign_and_send_transfer(api.clone(), dest, 100000, Location {
         parents: 0,
-        interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),
+        interior: local::runtime_types::staging_xcm::v5::junctions::Junctions::X2([PalletInstance(50), GeneralIndex(ASSET_ID.into())]),
     }).await;
 }
