@@ -8,7 +8,7 @@ Here we aim to illustrate how to use the `ChargeAssetConversionTxPayment` signed
 
 ## Environment
 
-For this example we will use [subxt](https://github.com/paritytech/subxt) as a way to communicate directly to the runtime, since at the time of writing the `ChargeAssetConversionTxPayment` signed extension is not operational  in the [polkadot-js api](https://github.com/polkadot-js/api/issues/5710) and subsequently it's not available in the tools that use the api, such as `txwrapper-core`. 
+For this example we will use [subxt](https://github.com/paritytech/subxt) as a way to communicate directly to the runtime. 
 
 We will also use [zombienet](https://github.com/paritytech/zombienet) to spawn the Westend Relay Chain and Westend Asset Hub nodes. For this we use the binaries built from the [polkadot-sdk repo](https://github.com/paritytech/polkadot-sdk), with the consideration of building the polkadot binary with the flag `--features=fast-runtime`, in order to decrease the epoch time. We also need to build the [three binaries](https://github.com/paritytech/polkadot/pull/7337) for running the nodes as local.
 
@@ -32,134 +32,42 @@ And there you go, you can check the outputs for the different stages of the exam
 
 ### Setup
 
-First, since subxt doesn't have a specific config for Asset Hub Westend and the ones available for [Polkadot](https://github.com/paritytech/subxt/blob/c8462defabad10a2c09f945737731e7259f809dd/subxt/src/config/polkadot.rs#L16C1-L24C1) and [Substrate](https://github.com/paritytech/subxt/blob/c8462defabad10a2c09f945737731e7259f809dd/subxt/src/config/substrate.rs#L19C1-L28C1) don't contain the `ChargeAssetConversionTxPayment` [signed extension](https://github.com/paritytech/subxt/blob/master/subxt/src/config/signed_extensions.rs) , we have to create our own custom config, reutilizing the existing Signed Extensions provided by `subxt` and adding our own version
-of the `ChargeAssetTxPayment`:
+First, since subxt doesn't have a specific config for Asset Hub Westend:
 
 ```rust
 pub enum CustomConfig {}
 
 impl Config for CustomConfig {
-    type Hash = <SubstrateConfig as Config>::Hash;
-    type AccountId = <SubstrateConfig as Config>::AccountId;
+    type AccountId = <PolkadotConfig as Config>::AccountId;
     type Address = <PolkadotConfig as Config>::Address;
-    type Signature = <SubstrateConfig as Config>::Signature;
-    type Hasher = <SubstrateConfig as Config>::Hasher;
-    type Header = <SubstrateConfig as Config>::Header;
-    type ExtrinsicParams = signed_extensions::AnyOf<
-        Self,
-        (
-            signed_extensions::CheckSpecVersion,
-            signed_extensions::CheckTxVersion,
-            signed_extensions::CheckNonce,
-            signed_extensions::CheckGenesis<Self>,
-            signed_extensions::CheckMortality<Self>,
-            signed_extensions::ChargeTransactionPayment,
-            ChargeAssetTxPayment,
-        ),
-    >;
+    type Signature = <PolkadotConfig as Config>::Signature;
+    type Hasher = <PolkadotConfig as Config>::Hasher;
+    type Header = <PolkadotConfig as Config>::Header;
+    type ExtrinsicParams = DefaultExtrinsicParams<CustomConfig>;
+    type AssetId = Location;
 }
 ```
-
-Now we define and implement `ChargeAssetTxPayment` in the same way as the original, 
-but having it accept a `MultiLocation` for the `assetId`:
-
-```rust
-#[derive(Debug)]
-pub struct ChargeAssetTxPayment {
-    tip: Compact<u128>,
-    asset_id: Option<MultiLocation>,
-}
-
-impl ChargeAssetTxPaymentParams {
-    pub fn no_tip() -> Self {
-        ChargeAssetTxPaymentParams {
-            tip: 0,
-            asset_id: None,
-        }
-    }
-    pub fn tip(tip: u128) -> Self {
-        ChargeAssetTxPaymentParams {
-            tip,
-            asset_id: None,
-        }
-    }
-    pub fn tip_of(tip: u128, asset_id: MultiLocation) -> Self {
-        ChargeAssetTxPaymentParams {
-            tip,
-            asset_id: Some(asset_id),
-        }
-    }
-}
-```
-
-We define the parameters for the `SignedExtension`:
-
-```rust
-impl<T: Config> ExtrinsicParams<T> for ChargeAssetTxPayment {
-    type OtherParams = ChargeAssetTxPaymentParams;
-    type Error = std::convert::Infallible;
-
-    fn new<Client: OfflineClientT<T>>(
-        _nonce: u64,
-        _client: Client,
-        other_params: Self::OtherParams,
-    ) -> Result<Self, Self::Error> {
-        Ok(ChargeAssetTxPayment {
-            tip: Compact(other_params.tip),
-            asset_id: other_params.asset_id,
-        })
-    }
-}
-```
-
-And we implement the encoder to make sure it's encoded correctly and give it a
-name:
-
-```rust
-impl ExtrinsicParamsEncoder for ChargeAssetTxPayment {
-    fn encode_extra_to(&self, v: &mut Vec<u8>) {
-        let asset_id = &self.asset_id;
-        (self.tip, asset_id).encode_to(v);
-    }
-}
-
-impl<T: Config> signed_extensions::SignedExtension<T> for ChargeAssetTxPayment {
-    const NAME: &'static str = "ChargeAssetTxPayment";
-}
-```
-
-Finally, we define our custom builder that intakes `DefaultExtrinsicParamsBuilder`
-with our `CustomConfig` and the additional parameters of `ChargeAssetTxPaymentParams`.
-Note that we ignore the part of `DefaultExtrinsicParamsBuilder` where the original
-`ChargeAssetTxPayment` is located, to avoid name collision:
-
-```rust
-pub fn custom(
-    params: DefaultExtrinsicParamsBuilder<CustomConfig>,
-    other_params: ChargeAssetTxPaymentParams,
-) -> <<CustomConfig as Config>::ExtrinsicParams as ExtrinsicParams<CustomConfig>>::OtherParams {
-    let (a, b, c, d, e, _, g) = params.build();
-    (a, b, c, d, e, g, other_params)
-}
-```
-
 For this we use the runtime metadata corresponding to our node and some types we
 retrieve from it:
 
 ```rust
-#[subxt::subxt(runtime_metadata_path = "../artifacts/asset_hub_metadata.scale")]
-
+#[subxt::subxt(runtime_metadata_path = "./metadata/metadata.scale",
+derive_for_type(
+    path = "staging_xcm::v5::location::Location",
+    derive = "Clone, codec::Encode",
+    recursive
+))]
 pub mod local {}
 
-type MultiLocation = local::runtime_types::staging_xcm::v3::multilocation::MultiLocation;
+// Types that we retrieve from the Metadata for our example
+use local::runtime_types::staging_xcm::v5::location::Location;
 
-use local::runtime_types::staging_xcm::v3::junction::Junction::{GeneralIndex, PalletInstance};
-use local::runtime_types::staging_xcm::v3::junctions::Junctions::{Here, X2};
+use local::runtime_types::staging_xcm::v5::junction::Junction::{GeneralIndex, PalletInstance};
+use local::runtime_types::staging_xcm::v5::junctions::Junctions::Here;
 
 type Call = local::runtime_types::asset_hub_westend_runtime::RuntimeCall;
-type AssetConversionCall = local::runtime_types::pallet_asset_conversion::pallet::Call;
-
-type AssetsCall = local::runtime_types::pallet_assets::pallet::Call;
+type AssetConversionCall = local::asset_conversion::Call;
+type AssetsCall = local::assets::Call;
 ```
 
 ### Asset and Liquidity Pool Creation
@@ -168,42 +76,44 @@ After that, we proceed to create a batch of transactions in which we create the 
 
 ```rust
 async fn prepare_setup(api: OnlineClient<CustomConfig>) {
-
     let alice: MultiAddress<AccountId32, ()> = dev::alice().public_key().into();
-    let address: AccountId32 = dev::alice().public_key().into();   
-	let mut call_buffer: Vec<Call> = Vec::<Call>::new();
-    
-	call_buffer.push(create_asset_call(alice.clone(), 1).unwrap());
-	call_buffer.push(
-	    set_asset_metadata_call(
-	        ASSET_ID,
-	        NAME.as_bytes().to_vec(),
-	        SYMBOL.as_bytes().to_vec(),
-	        0,
-	    )
-	    .unwrap(),
-	);
-	
-	const AMOUNT_TO_MINT: u128 = 100000000000000;
-	
-	call_buffer.push(mint_token_call( alice.clone(), AMOUNT_TO_MINT).unwrap());
-    call_buffer.push(create_pool_with_native_call().unwrap());
+    let address: AccountId32 = dev::alice().public_key().into();
+
+    let mut call_buffer: Vec<Call> = Vec::<Call>::new();
+    call_buffer.push(create_asset_call(alice.clone(), 1).unwrap());
+
     call_buffer.push(
-	    provide_liquidity_to_token_native_pool_call(
-	        10000000000,
-	        10000000,
-	        0,
-	        0,
-	        address,
-	    )
-	    .unwrap(),
-	);
+        set_asset_metadata_call(
+            ASSET_ID,
+            NAME.as_bytes().to_vec(),
+            SYMBOL.as_bytes().to_vec(),
+            0,
+        )
+        .unwrap(),
+    );
+
+    const AMOUNT_TO_MINT: u128 = 100000000000000;
+
+    call_buffer.push(mint_token_call( alice.clone(), AMOUNT_TO_MINT).unwrap());
+ 
+    call_buffer.push(create_pool_with_native_call().unwrap());
+
+    call_buffer.push(
+        provide_liquidity_to_token_native_pool_call(
+            10000000000,
+            10000000,
+            0,
+            0,
+            address,
+        )
+        .unwrap(),
+    );
 
     if let Err(subxt::Error::Runtime(dispatch_err)) =
-	    sign_and_send_batch_calls(api, call_buffer).await
-	{
-	    eprintln!("Could not dispatch the call: {}", dispatch_err);
-	}
+        sign_and_send_batch_calls(api, call_buffer).await
+    {
+        eprintln!("Could not dispatch the call: {}", dispatch_err);
+    }
 }
 ```
 
@@ -219,15 +129,21 @@ We also want to estimate how much the fees will be for our transaction, for whic
 
 ```rust
 async fn estimate_fees(
-	api: OnlineClient<CustomConfig>,
-	dest: MultiAddress<AccountId32, ()>,
-	amount: u128,
-	) {
-	let alice = dev::alice();
-	let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
-	let signed = api.tx().create_signed(&balance_transfer_tx, &alice, Default::default()).await.unwrap();
-	let partial_fee = signed.partial_fee_estimate().await.unwrap();
-	println!("The estimated fee is: {partial_fee}");
+    api: OnlineClient<CustomConfig>,
+    dest: MultiAddress<AccountId32, ()>,
+    amount: u128,
+    ) -> Result<u128, Box<dyn std::error::Error>> {
+    let alice = dev::alice();
+
+    let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
+    
+    let signed = api.tx().create_signed(&balance_transfer_tx, &alice, Default::default()).await.unwrap();
+    
+    let partial_fee: u128 = signed.partial_fee_estimate().await.unwrap();
+    
+    println!("\nThe estimated fee is: {partial_fee} Plancks\n");
+
+    Ok(partial_fee)
 }
 ```
 
@@ -235,62 +151,61 @@ Now we have the fee estimation, we can estimate the fee in the Non-Native Asset 
 
 ```rust
 async fn convert_fees(
-	api: OnlineClient<CustomConfig>,
-	amount: u128,
+    api: OnlineClient<CustomConfig>,
+    amount: u128,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let native: Location = Location {
+        parents: 1,
+        interior: Here,
+    };
+    let asset: Location = Location {
+        parents: 0,
+        interior: local::runtime_types::staging_xcm::v5::junctions::Junctions::X2([PalletInstance(50), GeneralIndex(ASSET_ID.into())]),
+    };
+    let amount = amount;
+    let include_fee = true;
 
-	let native = MultiLocation {
-		parents: 1,
-		interior: Here,
-	};
-	
-	let asset = MultiLocation {
-		parents: 0,
-		interior: X2(PalletInstance(50), GeneralIndex(ASSET_ID.into())),	
-	};
-	
-	let amount = amount;
-	
-	let include_fee = true;
+    let runtime_apis = local::apis().asset_conversion_api().quote_price_exact_tokens_for_tokens(
+        native,
+        asset,
+        amount,
+        include_fee
+    );
 
-	let runtime_apis = local::apis().asset_conversion_api().quote_price_exact_tokens_for_tokens(
-		native,
-		asset,
-		amount,
-		include_fee
-	);
+    let converted_fee = api.runtime_api().at_latest().await.unwrap().call(runtime_apis).await.unwrap();
 
-	let converted_fee = api.runtime_api().at_latest().await.unwrap().call(runtime_apis).await.unwrap();
-	println!("The estimated fee in the custom asset is: {:#}", converted_fee.unwrap());
+    println!("\nThe estimated fee in the custom asset is: {:#} TSTY\n", converted_fee.unwrap());
 
-	Ok(())
+    Ok(())
 }
 ```
 ### Transaction and fee payment
 
-Now we can finally make our transfer and pay the fees with our Non-Native Asset. For this we have to add our own custom function to compose the tuple of signed extensions, adding the `MultiLocation` of our Non-Native Asset as a parameter:
+Now we can finally make our transfer and pay the fees with our Non-Native Asset. For this we have to add our own custom function to compose the tuple of signed extensions, adding the `Location` of our Non-Native Asset as a parameter:
 ```rust
 async fn sign_and_send_transfer(
     api: OnlineClient<CustomConfig>,
     dest: MultiAddress<AccountId32, ()>,
     amount: u128,
-    multi: MultiLocation,
+    multi: Location,
 ) -> Result<(), subxt::Error> {
     let alice_pair_signer = dev::alice();
     let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
     
-    let tx_params = DefaultExtrinsicParamsBuilder::new();
+    let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
+    .tip_of(0, multi)
+    .build();
     
     // Here we send the Native asset transfer and wait for it to be finalized, while
     // listening for the `AssetTxFeePaid` event that confirms we succesfully paid
     // the fees with our custom asset
     api
     .tx()
-    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, custom(tx_params, ChargeAssetTxPaymentParams::tip_of(0, multi)))
+    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
     .await?
     .wait_for_finalized_success()
     .await?
-    .has::<local::asset_conversion_tx_payment::events::AssetTxFeePaid>()?;
+    .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
     
     println!("Balance transfer submitted and fee paid succesfully");
     Ok(())

@@ -8,25 +8,25 @@ default_command = "./polkadot"
   [[relaychain.nodes]]
   name = "alice"
   validator = true
-  ws_port = 9901
+  rpc_port = 9901
   extra_args = [ "-lparachain=debug" ]
 
   [[relaychain.nodes]]
   name = "bob"
   validator = true
-    ws_port = 9901
+    rpc_port = 9901
   extra_args = [ "-lparachain=debug" ]
 
   [[relaychain.nodes]]
   name = "charlie"
   validator = true
-    ws_port = 9902
+    rpc_port = 9902
   extra_args = [ "-lparachain=debug" ]
 
   [[relaychain.nodes]]
   name = "dave"
   validator = true
-  ws_port = 9903
+  rpc_port = 9903
   extra_args = [ "-lparachain=debug" ]
 
 [[parachains]]
@@ -38,11 +38,11 @@ chain = "asset-hub-westend-local"
   [[parachains.collators]]
   name = "statmine-collator01"
   command = "./polkadot-parachain"
-  ws_port = 9944
+  rpc_port = 9944
   args = ["--log=xcm=trace,pallet-assets=trace"]
 
   [[parachains.collators]]
   name = "statmine-collator02"
   command = "./polkadot-parachain"
-  ws_port = 9911
+  rpc_port = 9911
   args = ["--log=xcm=trace,pallet-assets=trace"]

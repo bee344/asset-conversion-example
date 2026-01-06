@@ -22,8 +22,8 @@ tracing = "0.1.40"
 frame-metadata = { version = "16.0.0", default-features = false, features = ["current", "std"] }
 derivative = "2.2.0"
 either = "1.12.0"
-subxt = "0.37.0"
-subxt-signer = { version = "0.37.0", features = ["subxt"]}
+subxt = "0.44.0"
+subxt-signer = { version = "0.44.0", features = ["subxt"]}
 tokio = { version = "1.37", features = ["macros", "time", "rt-multi-thread"] }
 
 # For ss58 encoding AccountId32 to serialize them properly:
