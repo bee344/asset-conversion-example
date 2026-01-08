@@ -3,7 +3,6 @@ use subxt::{
     config::{
         DefaultExtrinsicParamsBuilder,
         DefaultExtrinsicParams,
-        DefaultExtrinsicParams,
         Config,
         PolkadotConfig, 
         }, 
@@ -29,8 +28,6 @@ use local::runtime_types::staging_xcm::v5::junction::Junction::{GeneralIndex, Pa
 use local::runtime_types::staging_xcm::v5::junctions::Junctions::Here;
 
 type Call = local::runtime_types::asset_hub_westend_runtime::RuntimeCall;
-type AssetConversionCall = local::asset_conversion::Call;
-type AssetsCall = local::assets::Call;
 type AssetConversionCall = local::asset_conversion::Call;
 type AssetsCall = local::assets::Call;
 
@@ -166,9 +163,7 @@ async fn sign_and_send_batch_calls(
 
     api.tx()
         .sign_and_submit_then_watch(&tx, &alice_pair_signer, Default::default())
-        .sign_and_submit_then_watch(&tx, &alice_pair_signer, Default::default())
         .await?
-        .wait_for_finalized_success()
         .wait_for_finalized_success()
         .await?;
 
@@ -238,25 +233,34 @@ async fn sign_and_send_transfer(
     let alice_pair_signer = dev::alice();
     let balance_transfer_tx = local::tx().balances().transfer_keep_alive(dest, amount);
     
-    let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
-    .tip_of(0, multi)
+    let tx_config
+    = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
+    .tip_of(200, multi)
     .build();
-    let tx_config = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
-    .tip_of(0, multi)
-    .build();
-    
+
     // Here we send the Native asset transfer and wait for it to be finalized, while
     // listening for the `AssetTxFeePaid` event that confirms we succesfully paid
     // the fees with our custom asset
-    api
+    let events = api
     .tx()
-    .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
     .sign_and_submit_then_watch(&balance_transfer_tx, &alice_pair_signer, tx_config)
     .await?
     .wait_for_finalized_success()
-    .await?
-    .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
-    .has::<local::asset_tx_payment::events::AssetTxFeePaid>()?;
+    .await?;
+
+    for ev in events.iter() {
+        if let Ok(fee_paid) =
+            ev?.as_event::<local::asset_tx_payment::events::AssetTxFeePaid>()
+        {
+            if let Some(fee_paid) = fee_paid {
+                println!("Asset used for fee payment: {:?}", fee_paid.asset_id);
+                println!("Actual fee paid (asset units): {}", fee_paid.actual_fee);
+                println!("Tip fee paid (asset units): {}", fee_paid.tip);
+            }
+        }
+    }
+    
+
     
     println!("Balance transfer submitted and fee paid succesfully");
     Ok(())
@@ -313,10 +317,7 @@ async fn main() {
     let api = OnlineClient::<CustomConfig>::from_url(URI).await.unwrap();
 
     // Setup the stage
-    let _setup = prepare_setup(api.clone()).await;
-
-    // Give it a little time for the tx to be included in the blocks
-    std::thread::sleep(std::time::Duration::from_secs(24));
+    let _setup: () = prepare_setup(api.clone()).await;
 
     let dest: MultiAddress<AccountId32, ()> = dev::bob().public_key().into();
 

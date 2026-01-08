@@ -39,7 +39,7 @@ async function main() {
                     palletInstance: 50
                 },
                 {
-                    generalIndex: 1984
+                    generalIndex: 1
                 }
             ]
         }
@@ -49,8 +49,8 @@ async function main() {
      * Now we just send a regular transfer of the existential amount of DOT.
      */
     const tx = await api.tx.balances
-        .transferKeepAlive(bob.address, 2000000)
-        .signAsync(alice, { assetId: asset });
+        .transferKeepAlive(bob.address, 100000)
+        .signAsync(alice, { tip: 200, assetId: asset });
 
     console.log(tx.toHuman());
 
@@ -62,3 +62,5 @@ async function main() {
 main()
     .catch(console.error)
     .finally(() => process.exit());
+
+    
