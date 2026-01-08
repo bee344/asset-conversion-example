@@ -4,8 +4,6 @@ timeout = 1000
 [relaychain]
 chain = "westend-local"
 default_command = "./polkadot"
-chain = "westend-local"
-default_command = "./polkadot"
 
   [[relaychain.nodes]]
   name = "alice"
@@ -16,13 +14,13 @@ default_command = "./polkadot"
   [[relaychain.nodes]]
   name = "bob"
   validator = true
-    rpc_port = 9901
+  rpc_port = 9904
   extra_args = [ "-lparachain=debug" ]
 
   [[relaychain.nodes]]
   name = "charlie"
   validator = true
-    rpc_port = 9902
+  rpc_port = 9902
   extra_args = [ "-lparachain=debug" ]
 
   [[relaychain.nodes]]
@@ -34,8 +32,6 @@ default_command = "./polkadot"
 [[parachains]]
 id = 1000
 add_to_genesis = true
-cumulus_based = true
-chain = "asset-hub-westend-local"
 chain = "asset-hub-westend-local"
 
   [[parachains.collators]]
