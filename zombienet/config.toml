@@ -4,6 +4,8 @@ timeout = 1000
 [relaychain]
 chain = "westend-local"
 default_command = "./polkadot"
+chain = "westend-local"
+default_command = "./polkadot"
 
   [[relaychain.nodes]]
   name = "alice"
